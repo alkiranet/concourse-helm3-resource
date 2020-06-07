@@ -40,11 +40,21 @@ resource_types:
 * `stable_repo`: *Optional* A `false` value will disable using a default Helm stable repo. Any other value will be used to Override default Helm stable repo URL <https://charts.helm.sh/stable>. Useful if running helm deploys without internet access.
 * `tracing_enabled`: *Optional.* Enable extremely verbose tracing for this resource. Useful when developing the resource itself. May allow secrets to be displayed. (Default: false)
 * `helm_setup_purge_all`: *Optional.* Delete and purge every helm release. Use with extreme caution. (Default: false)
+* `kubernetes_provider`:  *Optional.* Use `aws` or `digitalocean` if you plan to use any of the configuration below.
 
 ## Source options for DigitalOcean
 
 * `digitalocean.cluster_id` *Optional.* ClusterID on digitalocean to fetch kubeconfig.
 * `digitalocean.access_token` *Optionl.* Read Access Token to fetch kubeconfig.
+
+## Source options for AWS
+
+* `aws.cluster_name` *Required.* Cluster name on AWS EKS to fetch kubeconfig.
+* `aws.assume_aws_role` *Optional.* Assume role ARN to generate kubeconfig.
+* `aws.aws_region` *Optional.* Region in which the cluster resides (Default: us-west-2)
+* `aws.aws_access_key_id` *Required.* Access Key ID to authenticate into AWS
+* `aws.aws_secret_access_key` *Required.* Secret Access Key to authenticate into AWS
+* `aws.aws_role_arn` *Optional.* Role ARN to assume for kubernetes access (kubeconfig)
 
 ## Behavior
 
@@ -117,9 +127,26 @@ resources:
 - name: myapp-helm
   type: helm
   source:
+    kubernetes_provider: digitalocean
     digitalocean:
       cluster_id: XXXXXXXXXXXXXX
       access_token: XXXXXXXXXXX
+    repos:
+      - name: some_repo
+        url: https://somerepo.github.io/charts
+```
+
+AWS
+```yaml
+resources:
+- name: myapp-helm
+  type: helm
+  source:
+    kubernetes_provider: aws
+    aws:
+      cluster_name: my_aws_cluster
+      aws_access_key_id: XXXXXXXXXXXXXX
+      aws_secret_access_key: XXXXXXXXXXX
     repos:
       - name: some_repo
         url: https://somerepo.github.io/charts

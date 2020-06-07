@@ -1,7 +1,12 @@
-FROM alpine/helm:3.4.2
-LABEL maintainer "Yann David (@Typositoire) <davidyann88@gmail>"
+FROM debian:buster
+LABEL maintainer "Yann David (@Typositoire) <davidyann88@gmail>;devops@alkira.com"
 
-RUN apk add --update --upgrade --no-cache jq bash curl git
+RUN apt update && apt install -y curl git unzip jq bash
+
+ARG HELM_VERSION=3.4.2
+ENV HELM_FILENAME=helm-v${HELM_VERSION}-linux-amd64.tar.gz
+RUN curl -L https://get.helm.sh/${HELM_FILENAME} | tar xz && mv linux-amd64/helm /bin/helm && rm -rf linux-amd64
+
 
 ARG KUBERNETES_VERSION=1.18.2
 RUN curl -sL -o /usr/local/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/v${KUBERNETES_VERSION}/bin/linux/amd64/kubectl; \
@@ -20,6 +25,12 @@ ARG DOCTL_VERSION=1.57.0
 RUN curl -sL -o /tmp/doctl.tar.gz https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/doctl-${DOCTL_VERSION}-linux-amd64.tar.gz && \
   tar -C /usr/local/bin -zxvf /tmp/doctl.tar.gz && \
   chmod +x /usr/local/bin/doctl
+
+ARG AWSCLI_VERSION=2.0.30
+RUN curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64-${AWSCLI_VERSION}.zip -o awscliv2.zip && \
+    unzip awscliv2.zip && \
+    ./aws/install && \
+    rm awscliv2.zip
 
 COPY entrypoint.sh /entrypoint.sh
 

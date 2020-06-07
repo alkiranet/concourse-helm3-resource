@@ -14,6 +14,7 @@ setup_kubernetes() {
   mkdir -p /root/.kube
   kubeconfig_path=$(jq -r '.params.kubeconfig_path // ""' < $payload)
   absolute_kubeconfig_path="${source}/${kubeconfig_path}"
+
   if [ -f "$absolute_kubeconfig_path" ]; then
     cp "$absolute_kubeconfig_path" "/root/.kube/config"
   else
@@ -157,16 +158,17 @@ setup_resource() {
     set -x
   fi
 
-  digitalocean=$(jq -r '.source.digitalocean // "false"' < $1)
-  do_cluster_id=$(jq -r '.source.digitalocean.cluster_id // "false"' < $1)
-  do_access_token=$(jq -r '.source.digitalocean.access_token // "false"' < $1)
+  kubernetes_provider=$(jq -r '.source.kubernetes_provider // ""' < $1)
 
   echo "Initializing kubectl..."
-  if [ "$digitalocean" == "false" ]; then
-    setup_kubernetes $1 $2
-  elif [ "$do_cluster_id" != "false" ] && [ "$do_access_token" != "false" ]; then
+  if [ "$kubernetes_provider" == "digitalocean" ]; then
     echo "Initializing digitalocean..."
     setup_doctl $1 $2
+  elif [ "$kubernetes_provider" == "aws" ]; then
+    echo "Initializing aws..."
+    setup_aws $1 $2
+  else
+    setup_kubernetes $1 $2
   fi
 
   echo "Initializing helm..."
@@ -176,7 +178,50 @@ setup_resource() {
 setup_doctl() {
   doctl_token=$(jq -r '.source.digitalocean.access_token // ""' < $payload)
   doctl_cluster_id=$(jq -r '.source.digitalocean.cluster_id // ""' < $payload)
-  doctl auth init -t $doctl_token
+  
+  if [ "$doctl_token" != "false" ] && [ "$doctl_cluster_id" != "false" ]; then
+    doctl auth init -t $doctl_token
 
-  doctl kubernetes cluster kubeconfig save $doctl_cluster_id
+    doctl kubernetes cluster kubeconfig save $doctl_cluster_id
+  fi
+}
+
+setup_aws() {
+  payload=$1
+  source=$2
+  # Optional. Use the AWS EKS authenticator
+  assume_aws_role=$(jq -r '.source.aws.assume_aws_role // ""' < $payload)
+  aws_region=$(jq -r '.source.aws.aws_region // ""' < $payload)
+  aws_access_key_id=$(jq -r '.source.aws.aws_access_key_id // ""' < $payload)
+  aws_secret_access_key=$(jq -r '.source.aws.aws_secret_access_key // ""' < $payload)
+
+  if [ ! -z "$aws_access_key_id" ]; then
+    export AWS_ACCESS_KEY_ID=$aws_access_key_id
+  fi
+  if [ ! -z "$aws_secret_access_key" ]; then
+    export AWS_SECRET_ACCESS_KEY=$aws_secret_access_key
+  fi
+
+  if [ -z "$aws_region" ]; then
+    echo 'No aws region specified in the source configuration with parameter aws_region. Defaulting to eu-west-1.'
+    aws_region="us-west-2"
+  fi
+  export AWS_DEFAULT_REGION=$aws_region
+
+  if [ ! -z "$assume_aws_role" ]; then
+    echo "Assuming aws role with arn $assume_aws_role"
+    temp_credentials=$(aws sts assume-role --role-arn $assume_aws_role --role-session-name concourse-helm-resource-session)
+    export AWS_ACCESS_KEY_ID=$(echo ${temp_credentials} | jq -r '.Credentials.AccessKeyId') AWS_SESSION_TOKEN=$(echo ${temp_credentials} | jq -r '.Credentials.SessionToken') AWS_SECRET_ACCESS_KEY=$(echo ${temp_credentials} | jq -r ' .Credentials.SecretAccessKey')
+  fi
+
+  local cluster_name
+  cluster_name="$(jq -r '.source.aws.cluster_name // ""' < "$payload")"
+  update_kubeconfig="aws eks update-kubeconfig --name $cluster_name"
+  
+  aws_role_arn=$(jq -r '.source.aws.aws_role_arn // ""' < $payload)
+  if [ ! -z "$aws_role_arn" ]; then
+    update_kubeconfig="$update_kubeconfig --role-arn $aws_role_arn"
+  fi
+
+  $update_kubeconfig
 }
