@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -ex
 
 if [ -f "$source/$namespace_overwrite" ]; then
   namespace=$(cat $source/$namespace_overwrite)
@@ -203,7 +203,7 @@ setup_aws() {
   fi
 
   if [ -z "$aws_region" ]; then
-    echo 'No aws region specified in the source configuration with parameter aws_region. Defaulting to eu-west-1.'
+    echo 'No aws region specified in the source configuration with parameter aws_region. Defaulting to us-west-2.'
     aws_region="us-west-2"
   fi
   export AWS_DEFAULT_REGION=$aws_region

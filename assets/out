@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -ex
 set -o pipefail
 
 exec 3>&1 # make stdout available as fd 3 for the result
@@ -285,8 +285,8 @@ else
     revision=$(echo $deployed | awk '{ print $1 }')
     chart=$(echo $deployed | awk '{ print $8 }')
     echo "Deployed revision $revision of $release"
-    result="$(jq -n "{version:{release:\"$release\", revision:\"$revision\"}, metadata: [{name: \"release\", value: \"$release\"},{name: \"revision\", value: \"$revision\"},{name: \"chart\", value: \"$chart\"}]}")"
-    echo "$result" | jq -s add  >&3
+    result="$(jq -n "{version:{release:\"$release\", revision:\"$revision\", namespace:\"$namespace\"}, metadata: [{name: \"release\", value: \"$release\"},{name: \"revision\", value: \"$revision\"},{name: \"chart\", value: \"$chart\"}]}")"
+    echo "$result" | jq -s add  >&33
   else
     echo "Debug was set to ${debug}; no release was performed. | tee $logfile"
     echo '{"version": {"revision": "N/A", "release": "N/A"}}' >&3
